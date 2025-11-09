@@ -1,140 +1,144 @@
-# Syntria
+## Syntria
 
-> AI agents for product leaders — from onboarding to execution
+AI-powered workspace that automates onboarding, detects risk, and supercharges product teams.
 
-Syntria combines a lightweight vendor/client onboarding hub with a Product Manager AI workbench powered by multi-agent automation.
+Syntria is an all-in-one platform that blends workflow automation, AI risk analysis, and intelligent product tooling. It handles vendor/client onboarding, flags risks in real time, generates product strategy for PMs, and drafts tasks and sprint plans on command — all inside a unified workspace.
 
 ## Features
+### 1. AI Onboarding and Risk Detection
 
-### PM Workbench
-- **Strategy Agent**: Generate product briefs, North Star metrics, and roadmaps
-- **Research Agent**: Synthesize feedback, cluster themes, identify opportunities
-- **Planning Agent**: Create user stories, acceptance criteria, and sprint plans
-- **GTM Agent**: Draft personas, messaging, and launch checklists
-- **Automation Agent**: Sync to Calendar and Notion, export artifacts
+Step-by-step onboarding wizard
 
-### Onboarding Hub
-- 4-step wizard with AI risk scoring
-- Automated compliance routing
-- Vendor and client onboarding
-- Immutable audit trails
+Gemini-powered risk scoring
 
-## Quick Start
+Auto-routing (Low → auto-approve, Medium → manager review, High → risk committee)
 
-### Prerequisites
-- Node.js 18+ and npm
-- At least one AI provider API key (Gemini or OpenAI)
+Document, PII, and control checks
 
-### Setup
+Built-in audit trail with CSV export
 
-```bash
-# 1. Clone the repository
-git clone <your-repo-url>
-cd productboardiq
+### 2. Product Management AI Suite
 
-# 2. Install dependencies
-npm install
+Strategy Agent
 
-# 3. Configure environment
-cp .env.local.example .env.local
-# Edit .env.local and add your API keys
+Sprint Planner
 
-# 4. Start development servers
-npm run dev
-```
+Task Generator
 
-The app will be available at `http://localhost:8080`
+Idea Evaluator
 
-### Environment Variables
+Research Summaries
 
-Required (at least one):
-```bash
-GEMINI_API_KEY=your_gemini_api_key
-# or
-OPENAI_API_KEY=your_openai_api_key
-```
+Product requirements generation
 
-Optional integrations:
-```bash
-ELEVENLABS_API_KEY=your_elevenlabs_key
-NOTION_API_KEY=your_notion_key
-GOOGLE_CALENDAR_CREDENTIALS_JSON=your_credentials
-```
+### 3. Workflow Automation
 
-## Demo Script
+Auto-generated notes and summaries
 
-### 2-Minute PM Workbench Demo
-1. Navigate to **Overview** → Click "Try PM Workbench"
-2. **Strategy Agent**: Enter market, segment, goals → Generate strategy (10s)
-3. **Research Agent**: Paste feedback → Analyze insights
-4. **Planning Agent**: Add requirements → Generate backlog and sprint plan
-5. **Export**: Download artifacts as CSV/Markdown
+Calendar-ready task breakdowns
 
-### 90-Second Onboarding Demo
-1. Navigate to **Overview** → Click "Try Onboarding"
-2. Complete 4-step wizard (Company Info → Docs → Controls → Review)
-3. View AI risk score and routing decision
-4. Check **Audit Trail** for immutable events
+Automated decommissioning flows
 
-- Perfect for quick 2-minute pitches
+Unified admin panel for backend testing
 
 ## Tech Stack
+### Frontend
 
-- **Frontend**: Vite + React + TypeScript, TailwindCSS, shadcn/ui
-- **State**: Zustand
-- **Charts**: Recharts
-- **API**: Express serverless functions
-- **AI**: Google Gemini (default) or OpenAI
-- **Voice**: ElevenLabs TTS (optional)
-- **Integrations**: Google Calendar + Notion (optional, mocked by default)
+Vite + React
 
-## API Endpoints
+TypeScript
 
-Health check:
-```bash
-curl http://localhost:8787/api/health
-```
+TailwindCSS
 
-Test risk scoring:
-```bash
-curl -X POST http://localhost:8787/api/risk-score \
-  -H "Content-Type: application/json" \
-  -d '{
-    "controls": {
-      "iam": false,
-      "encryption": true,
-      "logging": true
-    },
-    "handlesPII": true
-  }'
-```
+ShadCN UI
 
-## Deployment
+### Backend
 
-### Vercel
-1. Connect your repository to Vercel
-2. Add environment variables in project settings
-3. Deploy (serverless functions auto-detected in `/api/*`)
+Node.js
 
-The development Express server is only for local development. In production, Vercel will handle the API routes as serverless functions.
+Express
 
-## Architecture
+Gemini API (risk scoring + PM agents)
 
-```
-src/
-├── components/      # UI components (TopBar, Navigation, Layout)
-├── pages/          # Route pages (Overview, Workbench, Admin, etc.)
-├── lib/            # Utilities, types, store, API client
-└── hooks/          # React hooks
+ElevenLabs (optional voice agent)
 
-server/
-└── index.ts        # Express dev server (proxied by Vite)
-```
+Serverless-style API endpoints
 
-## License
+### Dev Tools
 
-MIT
+GitHub
 
----
+Vercel (optional deployment)
 
-Built with ❤️ using Lovable
+npm + tsx
+
+## Getting Started
+### 1. Clone the repository
+git clone https://github.com/bforce541/syntria
+cd syntria
+
+### 2. Install dependencies
+npm install
+
+### 3. Add your environment variables
+
+Create a file named .env.local:
+
+GEMINI_API_KEY=your_key_here
+ELEVENLABS_API_KEY=optional_voice_key
+
+### 4. Run the app
+npm run dev
+
+
+Local development:
+http://localhost:8080
+
+## Project Structure
+/src
+  /pages
+  /components
+  /lib
+/server
+/api
+README.md
+.env.local   (ignored)
+
+## What Syntria Does
+
+Syntria unifies two major problem spaces:
+
+### A) Secure Onboarding
+
+Automates KYC/KYB-style onboarding with AI risk analysis.
+
+### B) Product Intelligence
+
+Turns product managers into a 10x force through automated strategy, task creation, sprint planning, and research insights.
+
+## What We Learned
+
+How to combine multiple agents into a single workflow
+
+How to integrate Gemini AI into serverless endpoints
+
+How to design systems that scale cleanly under time pressure
+
+How to debug merge conflicts, environment issues, and API failures
+
+## What's Next for Syntria
+
+Full database integration
+
+Vendor graph visualization
+
+Multi-agent coordination
+
+Role-based access controls
+
+Voice-driven PM workflows
+
+Enterprise-grade onboarding modules
+
+
+## Syntria — Automate everything. Accelerate everyone.
