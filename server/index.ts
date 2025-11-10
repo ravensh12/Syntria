@@ -44,13 +44,13 @@ app.get('/api/health', async (req, res) => {
 app.post('/api/pm/strategy', async (req, res) => {
   let retryCount = 0;
   const maxRetries = 3;
-  
+
   while (retryCount < maxRetries) {
-  try {
-    const { market, segment, goals, constraints } = req.body;
-    
+    try {
+      const { market, segment, goals, constraints } = req.body;
+
       console.log(`📊 Generating strategy with AI... (attempt ${retryCount + 1}/${maxRetries})`);
-      
+
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) {
         return res.status(500).json({ error: 'GEMINI_API_KEY is required. Please add it to your .env.local file.' });
@@ -118,7 +118,7 @@ Write this like a strategic brief from a top consulting firm or senior product a
 
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      
+
       // Parse JSON from response
       let jsonText = text.trim();
       if (jsonText.startsWith('```json')) {
@@ -126,12 +126,12 @@ Write this like a strategic brief from a top consulting firm or senior product a
       } else if (jsonText.startsWith('```')) {
         jsonText = jsonText.replace(/```\n?/g, '').replace(/```\n?$/g, '');
       }
-      
+
       const aiData = JSON.parse(jsonText);
-      
-    const response = {
-      success: true,
-      data: {
+
+      const response = {
+        success: true,
+        data: {
           executiveSummary: aiData.executiveSummary || '',
           northStar: aiData.northStar || `Build the leading ${market || 'product'} solution for ${segment || 'customers'}`,
           marketOpportunity: aiData.marketOpportunity || '',
@@ -144,36 +144,36 @@ Write this like a strategic brief from a top consulting firm or senior product a
           timelineAndMilestones: aiData.timelineAndMilestones || '',
           constraints: aiData.constraints || constraints || [],
           prd: aiData.prd || '# Product Brief\n\n## Vision\n\n...',
-      },
-      trace: [
-        {
-          timestamp: new Date().toISOString(),
-          agent: 'strategy',
-          action: 'generate_brief',
+        },
+        trace: [
+          {
+            timestamp: new Date().toISOString(),
+            agent: 'strategy',
+            action: 'generate_brief',
             input: { market, segment, goals, constraints },
             output: 'Generated comprehensive product strategy brief using AI',
-        },
-      ],
-    };
+          },
+        ],
+      };
 
-    res.json(response);
+      res.json(response);
       return; // Success - exit retry loop
     } catch (aiError: any) {
       retryCount++;
       console.error(`❌ AI generation error (attempt ${retryCount}/${maxRetries}):`, aiError.message);
-      
+
       // If it's a JSON parsing error and we have retries left, try again
       if ((aiError.message.includes('JSON') || aiError.message.includes('parse') || aiError.message.includes('Unexpected token')) && retryCount < maxRetries) {
         console.log(`🔄 Retrying strategy generation... (${retryCount}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
         continue; // Retry the request
       }
-      
+
       // If all retries failed or it's a different error, return error
       if (retryCount >= maxRetries) {
         console.error('❌ All retries failed');
-        return res.status(500).json({ 
-          error: `Failed to generate strategy after ${maxRetries} attempts: ${aiError.message}. Please check your API key and try again.` 
+        return res.status(500).json({
+          error: `Failed to generate strategy after ${maxRetries} attempts: ${aiError.message}. Please check your API key and try again.`
         });
       }
     }
@@ -186,21 +186,21 @@ app.post('/api/pm/customer-advisory', async (req, res) => {
     const { message, conversationHistory, customerSegment, market } = req.body;
 
     if (!message) {
-      return res.status(400).json({ 
-        error: 'Message is required' 
+      return res.status(400).json({
+        error: 'Message is required'
       });
     }
 
     console.log('👥 Customer chatbot responding...');
-    
+
     try {
 
       // Build conversation context
-      const segmentContext = customerSegment 
+      const segmentContext = customerSegment
         ? `You are a real customer/user from this segment: "${customerSegment}"`
         : 'You are a real customer/user';
-      
-      const marketContext = market 
+
+      const marketContext = market
         ? `in the ${market} market`
         : '';
 
@@ -264,28 +264,28 @@ Respond as a real customer would. Be authentic and helpful. Keep your response c
         },
       });
       const text = result.response.text();
-      
-    const response = {
-      success: true,
-      data: {
+
+      const response = {
+        success: true,
+        data: {
           message: text.trim(),
-      },
-      trace: [
-        {
-          timestamp: new Date().toISOString(),
+        },
+        trace: [
+          {
+            timestamp: new Date().toISOString(),
             agent: 'customer-advisory',
             action: 'chat_response',
             input: { message, customerSegment, market },
             output: 'Generated customer response',
-        },
-      ],
-    };
+          },
+        ],
+      };
 
-    res.json(response);
+      res.json(response);
     } catch (aiError: any) {
       console.error('❌ AI generation error:', aiError.message);
-      res.status(500).json({ 
-        error: `Failed to generate customer response: ${aiError.message}. Please check your API key and try again.` 
+      res.status(500).json({
+        error: `Failed to generate customer response: ${aiError.message}. Please check your API key and try again.`
       });
     }
   } catch (error: any) {
@@ -321,7 +321,7 @@ Return ONLY a valid JSON array, no markdown or extra text. Make it specific, act
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    
+
     // Parse JSON from response
     let jsonText = text.trim();
     if (jsonText.startsWith('```json')) {
@@ -329,9 +329,9 @@ Return ONLY a valid JSON array, no markdown or extra text. Make it specific, act
     } else if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/```\n?/g, '').replace(/```\n?$/g, '');
     }
-    
+
     const plan = JSON.parse(jsonText);
-    
+
     // Add dates to each day
     return plan.map((item: any, index: number) => {
       const date = new Date(startDate);
@@ -367,7 +367,7 @@ function createICSFile(plan: any[], goal: string): string {
     const date = new Date(item.date);
     date.setHours(0, 0, 0, 0); // Reset to start of day
     const [year, month, day] = [date.getFullYear(), date.getMonth() + 1, date.getDate()];
-    
+
     // Parse duration from item if available, default to 2 hours
     let durationHours = 2;
     if (item.duration) {
@@ -376,7 +376,7 @@ function createICSFile(plan: any[], goal: string): string {
         durationHours = parseInt(durationMatch[1]);
       }
     }
-    
+
     return {
       title: item.task || `Day ${item.day}: Work on ${goal}`,
       description: `${item.description || item.task || ''}\n\nGoal: ${goal}`,
@@ -388,12 +388,12 @@ function createICSFile(plan: any[], goal: string): string {
   });
 
   const { error, value } = createEvents(events);
-  
+
   if (error) {
     console.error('Error creating ICS file:', error);
     throw new Error(`Failed to create calendar file: ${error.message}`);
   }
-  
+
   return value || '';
 }
 
@@ -458,7 +458,7 @@ Return ONLY a valid JSON array, no markdown or extra text. Make it actionable an
   try {
     const result = await model.generateContent(prompt);
     const text = result.response.text();
-    
+
     // Parse JSON from response
     let jsonText = text.trim();
     if (jsonText.startsWith('```json')) {
@@ -466,9 +466,9 @@ Return ONLY a valid JSON array, no markdown or extra text. Make it actionable an
     } else if (jsonText.startsWith('```')) {
       jsonText = jsonText.replace(/```\n?/g, '').replace(/```\n?$/g, '');
     }
-    
+
     const plan = JSON.parse(jsonText);
-    
+
     // Add dates to each day
     return plan.map((item: any, index: number) => {
       const date = new Date(startDate);
@@ -504,8 +504,8 @@ const oauth2Client = new google.auth.OAuth2(
 app.get('/api/auth/google', (req, res) => {
   // Check if credentials are configured
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !oauth2Client) {
-    return res.status(500).json({ 
-      error: 'Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local' 
+    return res.status(500).json({
+      error: 'Google OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env.local'
     });
   }
 
@@ -515,7 +515,7 @@ app.get('/api/auth/google', (req, res) => {
     scope: scopes,
     prompt: 'consent',
   });
-  res.json({ authUrl });
+  res.redirect(authUrl);
 });
 
 // OAuth callback
@@ -644,7 +644,7 @@ async function fetchCalendarEvents(accessToken: string, timeMin?: string, timeMa
 app.post('/api/pm/automation/sync-calendar', async (req, res) => {
   try {
     const { strategyData, customerMessages, sessionId } = req.body;
-    
+
     if (!strategyData) {
       return res.status(400).json({ error: 'Strategy data is required. Please generate a strategy first.' });
     }
@@ -654,10 +654,10 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
     }
 
     console.log('📅 Generating schedule from Strategy and Customer Advisory...');
-    
+
     // Generate schedule using AI based on strategy and customer insights
     const plan = await generateScheduleFromStrategyAndChat(strategyData, customerMessages);
-    
+
     // Create calendar events
     const calendarEvents = plan.map((item) => {
       // Parse date - handle both YYYY-MM-DD and other formats
@@ -675,16 +675,16 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
         date = new Date();
         date.setHours(9, 0, 0, 0);
       }
-      
+
       // Ensure date is valid
       if (isNaN(date.getTime())) {
         console.warn(`Invalid date for item: ${item.task}, using today's date`);
         date = new Date();
         date.setHours(9, 0, 0, 0);
       }
-      
+
       const endDate = new Date(date);
-      
+
       let hours = 2; // Default 2 hours
       if (item.duration) {
         const match = item.duration.toString().match(/(\d+)\s*hour/i);
@@ -693,7 +693,7 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
         }
       }
       endDate.setHours(endDate.getHours() + hours);
-      
+
       return {
         title: item.task || item.title || 'Task',
         description: item.description || item.task || item.title || 'Task',
@@ -704,7 +704,7 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
         category: item.category || 'Task',
       };
     });
-    
+
     console.log(`📅 Generated ${calendarEvents.length} calendar events from plan`);
 
     // Try to create events directly in Google Calendar if we have an access token
@@ -716,6 +716,7 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
       try {
         const tokens = tokenStore[sessionId];
         if (tokens.access_token) {
+          console.log("🧩 Calendar events to create:", calendarEvents);
           const result = await createEventsInGoogleCalendar(calendarEvents, tokens.access_token);
           eventsCreated = result.created;
           eventLinks = result.eventLinks;
@@ -760,9 +761,9 @@ app.post('/api/pm/automation/sync-calendar', async (req, res) => {
         googleCalendarUrl: 'https://calendar.google.com/calendar/u/0/r',
         eventsCreated: eventsCreated,
         eventLinks: eventLinks,
-        message: eventsCreated > 0 
+        message: eventsCreated > 0
           ? `Successfully created ${eventsCreated} events in your Google Calendar!`
-          : needsAuth 
+          : needsAuth
             ? 'Please authenticate with Google Calendar to sync events.'
             : 'Schedule generated successfully. Events will be created after authentication.',
       },
@@ -822,7 +823,7 @@ async function generateAudioSummaryText(
     .slice(-5) // Last 5 customer responses
     .map((msg: any) => msg.content)
     .join('. ');
-  const scheduleSummary = automationPlan?.length > 0 
+  const scheduleSummary = automationPlan?.length > 0
     ? `A ${automationPlan.length}-day schedule has been created with ${automationPlan.length} tasks.`
     : '';
 
@@ -886,7 +887,7 @@ async function listElevenLabsVoices(apiKey: string): Promise<any[]> {
 // Helper function to convert text to audio using ElevenLabs
 async function generateAudioFromText(text: string): Promise<Buffer> {
   let apiKey = process.env.ELEVENLABS_API_KEY;
-  
+
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY is required');
   }
@@ -897,11 +898,11 @@ async function generateAudioFromText(text: string): Promise<Buffer> {
   // Use ElevenLabs API to convert text to speech
   // Default voice ID for a professional, clear voice (you can customize this)
   const voiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM'; // Rachel - professional female voice
-  
+
   console.log(`🎙️ Using voice ID: ${voiceId}`);
   console.log(`🔑 API Key length: ${apiKey.length} characters`);
   console.log(`🔑 API Key starts with: ${apiKey.substring(0, 10)}...`);
-  
+
   try {
     const response = await axios.post(
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
@@ -932,7 +933,7 @@ async function generateAudioFromText(text: string): Promise<Buffer> {
     console.error('Status Text:', error.response?.statusText);
     console.error('Response Data:', error.response?.data);
     console.error('Error Message:', error.message);
-    
+
     // Provide more helpful error messages
     if (error.response?.status === 401) {
       throw new Error(`Invalid API key (401 Unauthorized). Please verify your ElevenLabs API key is correct. Check your .env.local file and ensure the key is valid. Get your API key from: https://elevenlabs.io/app/settings/api-keys`);
@@ -952,8 +953,8 @@ app.get('/api/pm/audio-summary/voices', async (req, res) => {
     const apiKey = process.env.ELEVENLABS_API_KEY;
     console.log('🔑 Checking ELEVENLABS_API_KEY:', apiKey ? `Found (${apiKey.substring(0, 10)}...)` : 'Not found');
     if (!apiKey) {
-      return res.status(400).json({ 
-        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file. Make sure there are no spaces around the = sign and no quotes around the value.' 
+      return res.status(400).json({
+        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file. Make sure there are no spaces around the = sign and no quotes around the value.'
       });
     }
 
@@ -982,21 +983,21 @@ app.get('/api/pm/calendar/events', async (req, res) => {
     const { sessionId, timeMin, timeMax } = req.query;
 
     if (!sessionId) {
-      return res.status(400).json({ 
-        error: 'Session ID is required. Please authenticate with Google Calendar first.' 
+      return res.status(400).json({
+        error: 'Session ID is required. Please authenticate with Google Calendar first.'
       });
     }
 
     if (!tokenStore[sessionId as string]) {
-      return res.status(401).json({ 
-        error: 'Invalid session. Please re-authenticate with Google Calendar.' 
+      return res.status(401).json({
+        error: 'Invalid session. Please re-authenticate with Google Calendar.'
       });
     }
 
     const tokens = tokenStore[sessionId as string];
     if (!tokens.access_token) {
-      return res.status(401).json({ 
-        error: 'No access token found. Please re-authenticate.' 
+      return res.status(401).json({
+        error: 'No access token found. Please re-authenticate.'
       });
     }
 
@@ -1025,24 +1026,24 @@ app.post('/api/pm/voice-assistant', async (req, res) => {
     const { question, strategyData, customerMessages, automationPlan, conversationHistory, sessionId } = req.body;
 
     if (!question) {
-      return res.status(400).json({ 
-        error: 'Question is required' 
+      return res.status(400).json({
+        error: 'Question is required'
       });
     }
 
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
     if (!elevenLabsKey) {
-      return res.status(400).json({ 
-        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file.' 
+      return res.status(400).json({
+        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file.'
       });
     }
 
     console.log('🤖 Processing question:', question);
 
     const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+    if (!apiKey) {
       return res.status(500).json({ error: 'GEMINI_API_KEY is required. Please add it to your .env.local file.' });
-  }
+    }
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
@@ -1067,7 +1068,7 @@ app.post('/api/pm/voice-assistant', async (req, res) => {
 
     // Build context from workbench data
     let context = 'You are a helpful AI assistant for a product manager. Answer questions based on the following workbench data:\n\n';
-    
+
     if (strategyData) {
       context += `STRATEGY DATA:\n`;
       context += `- Executive Summary: ${strategyData.executiveSummary || 'Not available'}\n`;
@@ -1188,16 +1189,16 @@ app.post('/api/pm/audio-summary', async (req, res) => {
     const { strategyData, customerMessages, automationPlan } = req.body;
 
     if (!strategyData && (!customerMessages || customerMessages.length === 0) && (!automationPlan || automationPlan.length === 0)) {
-      return res.status(400).json({ 
-        error: 'No workbench data available. Please generate strategy, customer chat, or automation schedule first.' 
+      return res.status(400).json({
+        error: 'No workbench data available. Please generate strategy, customer chat, or automation schedule first.'
       });
     }
 
     const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
     console.log('🔑 Checking ELEVENLABS_API_KEY for audio summary:', elevenLabsKey ? `Found (${elevenLabsKey.substring(0, 10)}...)` : 'Not found');
     if (!elevenLabsKey) {
-      return res.status(400).json({ 
-        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file. Format: ELEVENLABS_API_KEY=your_key_here (no spaces, no quotes). Then restart the server.' 
+      return res.status(400).json({
+        error: 'ELEVENLABS_API_KEY is required. Please add it to your .env.local file. Format: ELEVENLABS_API_KEY=your_key_here (no spaces, no quotes). Then restart the server.'
       });
     }
 
@@ -1231,7 +1232,7 @@ app.post('/api/pm/audio-summary', async (req, res) => {
           timestamp: new Date().toISOString(),
           agent: 'audio-summary',
           action: 'generate_audio',
-          input: { 
+          input: {
             hasStrategy: !!strategyData,
             customerMessagesCount: customerMessages?.length || 0,
             automationPlanCount: automationPlan?.length || 0
@@ -1249,7 +1250,7 @@ app.post('/api/pm/audio-summary', async (req, res) => {
 // Risk scoring with document analysis
 app.post('/api/risk-score', async (req, res) => {
   const data = req.body;
-  
+
   // For document analysis, prefer Gemini (has better multimodal support)
   // But fall back to other providers if Gemini is not available
   let useGeminiForDocuments = false;
@@ -1259,15 +1260,15 @@ app.post('/api/risk-score', async (req, res) => {
 
   try {
     let text: string;
-    
+
     if (useGeminiForDocuments) {
       // Use Gemini for document analysis (better multimodal support)
       try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
 
         const parts: any[] = [{
-        text: `You are a risk analyst. Analyze this vendor/client onboarding data and uploaded documents.
+          text: `You are a risk analyst. Analyze this vendor/client onboarding data and uploaded documents.
 
 Company: ${data.companyName} (${data.companyType})
 Country: ${data.country}
@@ -1290,23 +1291,23 @@ Return risk level (LOW/MEDIUM/HIGH) and 3-5 specific, actionable reasons based o
         }];
 
         // Add documents as images
-      for (const file of data.uploadedFiles) {
-        parts.push({
-          inlineData: {
-            mimeType: file.type || 'application/pdf',
-            data: file.base64
-          }
-        });
-    }
+        for (const file of data.uploadedFiles) {
+          parts.push({
+            inlineData: {
+              mimeType: file.type || 'application/pdf',
+              data: file.base64
+            }
+          });
+        }
 
-    const result = await model.generateContent(parts);
+        const result = await model.generateContent(parts);
         text = result.response.text();
       } catch (error: any) {
         console.warn('Gemini document analysis failed, falling back to text-only:', error.message);
         useGeminiForDocuments = false;
       }
     }
-    
+
     if (!useGeminiForDocuments) {
       // Use Gemini for text-only analysis
       const apiKey = process.env.GEMINI_API_KEY;
@@ -1327,13 +1328,13 @@ Document Checklist: ${data.documents?.join(', ') || 'None'}
 Uploaded Files: ${data.uploadedFiles?.length || 0}
 
 Return risk level (LOW/MEDIUM/HIGH) and 3-5 specific, actionable reasons based on the data provided.`;
-      
+
       const result = await model.generateContent(prompt);
       text = result.response.text();
     }
-    
+
     console.log('Risk analysis result:', text);
-    
+
     // Parse response
     const riskLevel = text.includes('HIGH') ? 'HIGH' : text.includes('MEDIUM') ? 'MEDIUM' : 'LOW';
     const reasons = text.split('\n')
@@ -1341,11 +1342,11 @@ Return risk level (LOW/MEDIUM/HIGH) and 3-5 specific, actionable reasons based o
       .map(l => l.trim().replace(/^[-\d+.]\s*/, ''))
       .filter(r => r.length > 0)
       .slice(0, 5);
-    
-    res.json({ 
-      riskLevel, 
-      reasons: reasons.length > 0 ? reasons : ['Analysis complete based on submitted data'], 
-      score: riskLevel === 'HIGH' ? 85 : riskLevel === 'MEDIUM' ? 55 : 25 
+
+    res.json({
+      riskLevel,
+      reasons: reasons.length > 0 ? reasons : ['Analysis complete based on submitted data'],
+      score: riskLevel === 'HIGH' ? 85 : riskLevel === 'MEDIUM' ? 55 : 25
     });
   } catch (err: any) {
     console.error('❌ Risk analysis error:', err.message);
@@ -1359,7 +1360,7 @@ function calculateFallbackScore(data: any) {
   if (data.hasPII) score += 30;
   if (!data.hasControls) score += 25;
   if (data.country !== 'USA') score += 15;
-  
+
   const riskLevel = score > 70 ? 'HIGH' : score > 40 ? 'MEDIUM' : 'LOW';
   return { riskLevel, reasons: ['Rule-based fallback'], score };
 }

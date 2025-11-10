@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Target, MessageSquare, Zap, Download, Star, Users, CheckCircle, AlertCircle, Lightbulb, Quote, Volume2, Play, Pause, Mic, MicOff } from "lucide-react";
+import { Loader2, Target, MessageSquare, Zap, Download, Star, Users, CheckCircle, AlertCircle, Lightbulb, Quote, Volume2, Play, Pause } from "lucide-react";
 import { runStrategyAgent, runCustomerAdvisoryAgent, syncCalendar, generateAudioSummary, listElevenLabsVoices, askVoiceAssistant } from "@/lib/api";
 
 // Simple markdown to HTML converter
@@ -17,11 +17,11 @@ const markdownToHtml = (markdown: string): string => {
   const lines = markdown.split('\n');
   let result: string[] = [];
   let inList = false;
-  
+
   for (let i = 0; i < lines.length; i++) {
     let line = lines[i];
     const trimmed = line.trim();
-    
+
     // Headers (check first, before other processing)
     if (trimmed.startsWith('### ')) {
       if (inList) {
@@ -45,7 +45,7 @@ const markdownToHtml = (markdown: string): string => {
       result.push(`<h1 class="text-2xl font-bold mt-8 mb-4">${trimmed.substring(2)}</h1>`);
       continue;
     }
-    
+
     // Lists
     const listMatch = trimmed.match(/^[-*]\s+(.+)$/);
     if (listMatch) {
@@ -65,7 +65,7 @@ const markdownToHtml = (markdown: string): string => {
         inList = false;
       }
     }
-    
+
     // Regular paragraphs
     if (trimmed) {
       let processed = trimmed;
@@ -80,11 +80,11 @@ const markdownToHtml = (markdown: string): string => {
       result.push('<br>');
     }
   }
-  
+
   if (inList) {
     result.push('</ul>');
   }
-  
+
   return result.join('');
 };
 
@@ -96,144 +96,20 @@ export default function Workbench() {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
     const authSuccess = urlParams.get('auth');
-    const authError = urlParams.get('error');
-    
-    // Check if we're in a popup window (opened by window.open)
-    const isPopup = window.opener && !window.opener.closed;
-    
+
     if (sessionId && authSuccess === 'success') {
-      // If we're in a popup, communicate with the opener
-      if (isPopup && window.opener) {
-        // Send message to opener
-        window.opener.postMessage({
-          type: 'GOOGLE_AUTH_SUCCESS',
-          sessionId: sessionId
-        }, window.location.origin);
-        
-        // Also store in localStorage for the opener to pick up
-        localStorage.setItem('google_auth_session', sessionId);
-        
-        // Close the popup after a short delay
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      } else {
-        // Normal flow - we're in the main window
-        setGoogleSessionId(sessionId);
-        toast({
-          title: "Google Calendar Connected!",
-          description: "You can now sync events directly to your calendar.",
-        });
-      }
-      
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (authError) {
-      // Handle error
-      if (isPopup && window.opener) {
-        window.opener.postMessage({
-          type: 'GOOGLE_AUTH_ERROR',
-          error: authError
-        }, window.location.origin);
-        
-        setTimeout(() => {
-          window.close();
-        }, 500);
-      } else {
-        toast({
-          title: "Authentication Failed",
-          description: authError === 'oauth_not_configured' 
-            ? "Google OAuth is not configured. Please check your environment variables."
-            : authError === 'no_code'
-            ? "No authorization code received from Google."
-            : "Failed to authenticate with Google.",
-          variant: "destructive",
-        });
-      }
-      
+      setGoogleSessionId(sessionId);
+      toast({
+        title: "Google Calendar Connected!",
+        description: "You can now sync events directly to your calendar.",
+      });
       // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [toast]);
-
-  // Initialize Speech Recognition
-  useEffect(() => {
-    // Check if browser supports speech recognition
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      console.warn('Speech recognition not supported in this browser');
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false; // Stop after each utterance
-    recognition.interimResults = false; // Only return final results
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
-      const transcript = event.results[0][0].transcript;
-      setVoiceAssistantInput(transcript);
-      
-      // Store transcript in a ref or trigger via state update
-      // We'll use a custom event that the handler will listen to
-      if (transcript.trim()) {
-        // Dispatch event that will be handled by the question handler
-        window.dispatchEvent(new CustomEvent('voice-transcript', { detail: transcript }));
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
-      setIsListening(false);
-      
-      if (event.error === 'no-speech') {
-        toast({
-          title: "No speech detected",
-          description: "Please try speaking again.",
-          variant: "destructive",
-        });
-      } else if (event.error === 'not-allowed') {
-        toast({
-          title: "Microphone permission denied",
-          description: "Please allow microphone access to use voice input.",
-          variant: "destructive",
-        });
-      } else if (event.error !== 'aborted') {
-        // Don't show error for aborted (user stopped manually)
-        toast({
-          title: "Speech recognition error",
-          description: event.error || "Failed to recognize speech.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    setSpeechRecognition(recognition);
-
-    // Cleanup
-    return () => {
-      if (recognition) {
-        try {
-          recognition.stop();
-        } catch (error) {
-          // Ignore cleanup errors
-        }
-      }
-    };
-  }, [toast]);
-
   const [activeTab, setActiveTab] = useState("strategy");
   const [loading, setLoading] = useState(false);
-  
+
   // Store results per tab to keep them when switching tabs
   const [strategyResult, setStrategyResult] = useState<any>(null);
   const [automationResult, setAutomationResult] = useState<any>(null);
@@ -264,9 +140,6 @@ export default function Workbench() {
   const [voiceAssistantInput, setVoiceAssistantInput] = useState("");
   const [voiceAssistantLoading, setVoiceAssistantLoading] = useState(false);
   const [voiceAssistantPlaying, setVoiceAssistantPlaying] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
-  const [speechRecognition, setSpeechRecognition] = useState<SpeechRecognition | null>(null);
-  const [autoListen, setAutoListen] = useState(false); // Auto-resume listening after response
 
   const handleStrategy = async () => {
     setLoading(true);
@@ -364,175 +237,29 @@ export default function Workbench() {
 
     setSyncingCalendar(true);
     setAutomationResult(null);
-    
+
     try {
       const response = await syncCalendar({
         strategyData: strategyResult.data,
         customerMessages: customerMessages,
         sessionId: googleSessionId || undefined,
       });
-      
+
       setAutomationResult(response);
       setActiveTab("automation");
-      
+
       // If authentication is needed
-      if (response.needsAuth && response.authUrl) {
+      if (response.needsAuth) {
         toast({
           title: "Google Calendar Authorization Required",
-          description: "Opening Google sign-in in a new tab...",
+          description: "Redirecting to Google to authorize calendar access...",
         });
-        
-        // Open OAuth flow in a new tab
-        const authWindow = window.open(response.authUrl, 'google-auth', 'width=500,height=600');
-        
-        // Listen for OAuth completion via postMessage or storage event
-        const handleStorageChange = (e: StorageEvent) => {
-          if (e.key === 'google_auth_session' && e.newValue) {
-            const sessionId = e.newValue;
-            setGoogleSessionId(sessionId);
-            toast({
-              title: "Google Calendar Connected!",
-              description: "You can now sync events directly to your calendar.",
-            });
-            
-            // Close the auth window if still open
-            if (authWindow && !authWindow.closed) {
-              authWindow.close();
-            }
-            
-            // Remove the storage listener
-            window.removeEventListener('storage', handleStorageChange);
-            
-            // Clear the storage key
-            localStorage.removeItem('google_auth_session');
-            
-            // Retry syncing calendar now that we're authenticated
-            // Don't call handleSyncCalendar recursively - instead, trigger a sync directly
-            setTimeout(async () => {
-              try {
-                const retryResponse = await syncCalendar({
-                  strategyData: strategyResult.data,
-                  customerMessages: customerMessages,
-                  sessionId: sessionId,
-                });
-                
-                setAutomationResult(retryResponse);
-                setSyncingCalendar(false);
-                
-                if (retryResponse.data.eventsCreated && retryResponse.data.eventsCreated > 0) {
-                  window.open(retryResponse.data.googleCalendarUrl || 'https://calendar.google.com/calendar/u/0/r', '_blank');
-                  toast({
-                    title: "Events Created!",
-                    description: `Successfully created ${retryResponse.data.eventsCreated} events in your Google Calendar!`,
-                  });
-                } else {
-                  toast({
-                    title: "Schedule Generated",
-                    description: retryResponse.data.message || "Schedule generated successfully.",
-                  });
-                }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-                setSyncingCalendar(false);
-              }
-            }, 500);
-          }
-        };
-        
-        // Also listen for postMessage (if callback page sends it)
-        const handleMessage = (event: MessageEvent) => {
-          if (event.origin !== window.location.origin) {
-            return;
-          }
-          
-          if (event.data.type === 'GOOGLE_AUTH_SUCCESS') {
-            const sessionId = event.data.sessionId;
-            setGoogleSessionId(sessionId);
-            toast({
-              title: "Google Calendar Connected!",
-              description: "You can now sync events directly to your calendar.",
-            });
-            
-            if (authWindow) {
-              authWindow.close();
-            }
-            
-            window.removeEventListener('message', handleMessage);
-            window.removeEventListener('storage', handleStorageChange);
-            
-            // Retry syncing calendar now that we're authenticated
-            setTimeout(async () => {
-              try {
-                const retryResponse = await syncCalendar({
-                  strategyData: strategyResult.data,
-                  customerMessages: customerMessages,
-                  sessionId: sessionId,
-                });
-                
-                setAutomationResult(retryResponse);
-                setSyncingCalendar(false);
-                
-                if (retryResponse.data.eventsCreated && retryResponse.data.eventsCreated > 0) {
-                  window.open(retryResponse.data.googleCalendarUrl || 'https://calendar.google.com/calendar/u/0/r', '_blank');
-      toast({
-                    title: "Events Created!",
-                    description: `Successfully created ${retryResponse.data.eventsCreated} events in your Google Calendar!`,
-                  });
-                } else {
-                  toast({
-                    title: "Schedule Generated",
-                    description: retryResponse.data.message || "Schedule generated successfully.",
-                  });
-                }
-              } catch (error: any) {
-                toast({
-                  title: "Error",
-                  description: error.message,
-                  variant: "destructive",
-                });
-                setSyncingCalendar(false);
-              }
-            }, 500);
-          } else if (event.data.type === 'GOOGLE_AUTH_ERROR') {
-            toast({
-              title: "Authentication Failed",
-              description: event.data.error || "Failed to authenticate with Google.",
-              variant: "destructive",
-            });
-            
-            if (authWindow) {
-              authWindow.close();
-            }
-            
-            window.removeEventListener('message', handleMessage);
-            window.removeEventListener('storage', handleStorageChange);
-            setSyncingCalendar(false);
-          }
-        };
-        
-        window.addEventListener('storage', handleStorageChange);
-        window.addEventListener('message', handleMessage);
-        
-        // Check if the window was closed manually
-        const checkClosed = setInterval(() => {
-          if (authWindow?.closed) {
-            clearInterval(checkClosed);
-            window.removeEventListener('message', handleMessage);
-            window.removeEventListener('storage', handleStorageChange);
-            // Only stop loading if window was closed without auth (user cancelled)
-            if (!googleSessionId) {
-              setSyncingCalendar(false);
-            }
-          }
-        }, 500);
-        
+        // Directly start OAuth flow
+        window.location.href = "http://localhost:8787/api/auth/google";
         return;
       }
-      
+
+
       // If events were created automatically, open Google Calendar
       if (response.data.eventsCreated && response.data.eventsCreated > 0) {
         // Events were created automatically via API
@@ -571,7 +298,7 @@ export default function Workbench() {
 
     setAudioSummaryLoading(true);
     setAudioSummary(null);
-    
+
     try {
       const response = await generateAudioSummary({
         strategyData: strategyResult?.data,
@@ -590,12 +317,12 @@ export default function Workbench() {
       });
     } catch (error: any) {
       let errorMessage = error.message || "Failed to generate audio summary.";
-      
+
       // Provide helpful guidance for 401 errors
       if (errorMessage.includes("401") || errorMessage.includes("Unauthorized") || errorMessage.includes("Invalid API key")) {
         errorMessage += " Please verify your ElevenLabs API key is correct and active. Get your API key from: https://elevenlabs.io/app/settings/api-keys";
       }
-      
+
       toast({
         title: "Error",
         description: errorMessage,
@@ -659,11 +386,10 @@ export default function Workbench() {
     });
   };
 
-  // Handle voice assistant question with text (used by both voice and text input)
-  const handleVoiceAssistantQuestionWithText = async (questionText?: string) => {
-    const question = (questionText || voiceAssistantInput).trim();
-    if (!question) return;
+  const handleVoiceAssistantQuestion = async () => {
+    if (!voiceAssistantInput.trim()) return;
 
+    const question = voiceAssistantInput.trim();
     setVoiceAssistantInput("");
     setVoiceAssistantLoading(true);
 
@@ -678,7 +404,6 @@ export default function Workbench() {
         customerMessages: customerMessages,
         automationPlan: automationResult?.data?.plan,
         conversationHistory: voiceAssistantMessages,
-        sessionId: googleSessionId || undefined,
       });
 
       // Add assistant response to conversation
@@ -692,17 +417,12 @@ export default function Workbench() {
       // Auto-play the audio response
       if (response.data.audioBase64) {
         const audio = new Audio(`data:audio/mpeg;base64,${response.data.audioBase64}`);
-        const questionId = `msg-${voiceAssistantMessages.length + 1}`;
+        const questionId = `msg-${voiceAssistantMessages.length}`;
         setVoiceAssistantPlaying(questionId);
-        
+        audio.play();
+
         audio.onended = () => {
           setVoiceAssistantPlaying(null);
-          // Auto-resume listening if enabled
-          if (autoListen && speechRecognition) {
-            setTimeout(() => {
-              startListening();
-            }, 500);
-          }
         };
 
         audio.onerror = () => {
@@ -713,8 +433,6 @@ export default function Workbench() {
             variant: "destructive",
           });
         };
-
-        audio.play();
       }
     } catch (error: any) {
       toast({
@@ -726,46 +444,6 @@ export default function Workbench() {
       setVoiceAssistantMessages(prev => prev.slice(0, -1));
     } finally {
       setVoiceAssistantLoading(false);
-    }
-  };
-
-  const handleVoiceAssistantQuestion = () => {
-    handleVoiceAssistantQuestionWithText();
-  };
-
-  // Start listening for voice input
-  const startListening = () => {
-    if (!speechRecognition) {
-      toast({
-        title: "Speech recognition not available",
-        description: "Your browser doesn't support speech recognition.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (isListening) {
-      speechRecognition.stop();
-      return;
-    }
-
-    try {
-      speechRecognition.start();
-    } catch (error: any) {
-      console.error('Error starting speech recognition:', error);
-      toast({
-        title: "Error",
-        description: "Failed to start voice recognition.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Stop listening for voice input
-  const stopListening = () => {
-    if (speechRecognition && isListening) {
-      speechRecognition.stop();
-      setIsListening(false);
     }
   };
 
@@ -793,24 +471,6 @@ export default function Workbench() {
       });
     };
   };
-
-  // Listen for voice transcript events from speech recognition
-  useEffect(() => {
-    const handleVoiceTranscript = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      const transcript = customEvent.detail;
-      if (transcript && transcript.trim()) {
-        // Call the handler - it will have access to latest state through closure
-        handleVoiceAssistantQuestionWithText(transcript);
-      }
-    };
-
-    window.addEventListener('voice-transcript', handleVoiceTranscript);
-    return () => {
-      window.removeEventListener('voice-transcript', handleVoiceTranscript);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps - handler is recreated on each render with latest state
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -876,7 +536,7 @@ export default function Workbench() {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="goals">Goals (one per line)</Label>
                 <Textarea
@@ -919,9 +579,9 @@ export default function Workbench() {
                     <CardDescription>Strategic overview of the product opportunity</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div 
+                    <div
                       className="prose prose-sm max-w-none dark:prose-invert text-base leading-relaxed"
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: markdownToHtml(strategyResult.data.executiveSummary)
                       }}
                     />
@@ -931,32 +591,32 @@ export default function Workbench() {
 
               {/* North Star Metric */}
               {strategyResult.data.northStar && (
-            <Card>
-              <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Star className="w-5 h-5 text-yellow-500" />
                       North Star Metric
                     </CardTitle>
-              </CardHeader>
-              <CardContent>
+                  </CardHeader>
+                  <CardContent>
                     <p className="text-lg font-medium">{strategyResult.data.northStar}</p>
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Market Opportunity */}
               {strategyResult.data.marketOpportunity && (
-          <Card>
-            <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Target className="w-5 h-5 text-green-500" />
                       Market Opportunity
                     </CardTitle>
-            </CardHeader>
+                  </CardHeader>
                   <CardContent>
-                    <div 
+                    <div
                       className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: markdownToHtml(strategyResult.data.marketOpportunity)
                       }}
                     />
@@ -974,9 +634,9 @@ export default function Workbench() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div 
+                    <div
                       className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: markdownToHtml(strategyResult.data.competitiveLandscape)
                       }}
                     />
@@ -1000,7 +660,7 @@ export default function Workbench() {
                         <li key={index} className="flex items-start gap-3">
                           <div className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mt-0.5">
                             <span className="text-sm font-semibold text-orange-600 dark:text-orange-400">{index + 1}</span>
-              </div>
+                          </div>
                           <span className="flex-1">{rec}</span>
                         </li>
                       ))}
@@ -1035,7 +695,7 @@ export default function Workbench() {
                                 <li key={i} className="text-sm">{pain}</li>
                               ))}
                             </ul>
-              </div>
+                          </div>
                         )}
                         {icp.opportunities && icp.opportunities.length > 0 && (
                           <div>
@@ -1097,20 +757,20 @@ export default function Workbench() {
                         </li>
                       ))}
                     </ul>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Go-to-Market Considerations */}
               {strategyResult.data.goToMarketConsiderations && strategyResult.data.goToMarketConsiderations.length > 0 && (
-            <Card>
-              <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Target className="w-5 h-5 text-indigo-500" />
                       Go-to-Market Considerations
                     </CardTitle>
-              </CardHeader>
-              <CardContent>
+                  </CardHeader>
+                  <CardContent>
                     <ul className="space-y-2">
                       {strategyResult.data.goToMarketConsiderations.map((gtm: string, index: number) => (
                         <li key={index} className="flex items-start gap-2">
@@ -1119,14 +779,14 @@ export default function Workbench() {
                         </li>
                       ))}
                     </ul>
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Risks and Challenges */}
               {strategyResult.data.risksAndChallenges && strategyResult.data.risksAndChallenges.length > 0 && (
-          <Card>
-            <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <AlertCircle className="w-5 h-5 text-red-500" />
                       Risks and Challenges
@@ -1164,9 +824,9 @@ export default function Workbench() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div 
+                    <div
                       className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: markdownToHtml(strategyResult.data.timelineAndMilestones)
                       }}
                     />
@@ -1198,19 +858,19 @@ export default function Workbench() {
 
               {/* Product Requirements Document */}
               {strategyResult.data.prd && (
-            <Card>
-              <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle>Product Requirements Document (PRD)</CardTitle>
-              </CardHeader>
-              <CardContent>
-                    <div 
+                  </CardHeader>
+                  <CardContent>
+                    <div
                       className="prose prose-sm max-w-none dark:prose-invert"
-                      dangerouslySetInnerHTML={{ 
+                      dangerouslySetInnerHTML={{
                         __html: markdownToHtml(strategyResult.data.prd)
                       }}
                     />
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
               )}
             </div>
           )}
@@ -1225,9 +885,9 @@ export default function Workbench() {
                     <MessageSquare className="w-5 h-5" />
                     Customer Chat
                   </CardTitle>
-              <CardDescription>
+                  <CardDescription>
                     Chat with an AI that acts like your target customer to understand their needs, pain points, and feedback
-              </CardDescription>
+                  </CardDescription>
                 </div>
                 {customerMessages.length > 0 && (
                   <Button variant="outline" size="sm" onClick={clearCustomerChat}>
@@ -1269,11 +929,10 @@ export default function Workbench() {
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
                       <div
-                        className={`max-w-[80%] rounded-lg p-4 ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted border'
-                        }`}
+                        className={`max-w-[80%] rounded-lg p-4 ${msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted border'
+                          }`}
                       >
                         <div className="text-xs font-medium mb-1 opacity-70">
                           {msg.role === 'user' ? 'You (PM)' : 'Customer'}
@@ -1290,9 +949,9 @@ export default function Workbench() {
                           <span className="text-sm text-muted-foreground">Customer is typing...</span>
                         </div>
                       </div>
-              </div>
+                    </div>
                   )}
-              </div>
+                </div>
               </ScrollArea>
               <div className="flex gap-2 flex-shrink-0">
                 <Textarea
@@ -1347,11 +1006,11 @@ export default function Workbench() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {strategyResult?.data 
+                    {strategyResult?.data
                       ? 'Your product strategy is ready to use'
                       : 'Generate a strategy first to create your schedule'}
                   </p>
-              </div>
+                </div>
 
                 <div className={`p-4 rounded-lg border ${customerMessages.length > 0 ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'}`}>
                   <div className="flex items-center gap-2">
@@ -1365,15 +1024,15 @@ export default function Workbench() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {customerMessages.length > 0 
+                    {customerMessages.length > 0
                       ? `${customerMessages.length} messages in your customer conversation`
                       : 'Have a conversation with the customer chatbot to gather insights'}
                   </p>
                 </div>
               </div>
 
-              <Button 
-                onClick={handleSyncCalendar} 
+              <Button
+                onClick={handleSyncCalendar}
                 disabled={syncingCalendar || !strategyResult?.data || customerMessages.length === 0}
                 className="w-full"
                 size="lg"
@@ -1424,16 +1083,16 @@ export default function Workbench() {
             <div className="space-y-6">
               {/* Success Message */}
               {automationResult.data.message && (
-            <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
-              <CardHeader>
+                <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <CheckCircle className="w-5 h-5 text-green-500" />
                       Schedule Generated Successfully!
                     </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                     <p className="text-sm">{automationResult.data.message}</p>
-                    
+
                     {/* Events created automatically */}
                     {automationResult.data.eventsCreated && automationResult.data.eventsCreated > 0 ? (
                       <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
@@ -1443,8 +1102,8 @@ export default function Workbench() {
                         <p className="text-sm text-green-800 dark:text-green-200 mb-3">
                           {automationResult.data.eventsCreated} events have been automatically added to your Google Calendar. No file download needed!
                         </p>
-                        <Button 
-                          onClick={() => window.open('https://calendar.google.com/calendar/u/0/r', '_blank')} 
+                        <Button
+                          onClick={() => window.open('https://calendar.google.com/calendar/u/0/r', '_blank')}
                           className="w-full sm:w-auto"
                         >
                           <Zap className="w-4 h-4 mr-2" />
@@ -1466,20 +1125,20 @@ export default function Workbench() {
                         )}
                       </div>
                     )}
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* 2-Week Plan */}
               {automationResult.data.plan && automationResult.data.plan.length > 0 && (
-            <Card>
-              <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle>2-Week Plan</CardTitle>
                     <CardDescription>
                       Daily tasks and milestones to achieve your goal
                     </CardDescription>
-              </CardHeader>
-              <CardContent>
+                  </CardHeader>
+                  <CardContent>
                     <div className="space-y-4">
                       {automationResult.data.plan.map((item: any, index: number) => (
                         <div key={index} className="border rounded-lg p-4 space-y-2">
@@ -1506,14 +1165,14 @@ export default function Workbench() {
                         </div>
                       ))}
                     </div>
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Calendar Events Preview */}
               {automationResult.data.calendarEvents && automationResult.data.calendarEvents.length > 0 && (
-          <Card>
-            <CardHeader>
+                <Card>
+                  <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Zap className="w-5 h-5 text-blue-500" />
                       Calendar Events Preview
@@ -1521,7 +1180,7 @@ export default function Workbench() {
                     <CardDescription>
                       {automationResult.data.calendarEvents.length} event(s) will be created. Download the calendar file above to import them.
                     </CardDescription>
-            </CardHeader>
+                  </CardHeader>
                   <CardContent>
                     <div className="space-y-3 max-h-96 overflow-y-auto">
                       {automationResult.data.calendarEvents.map((event: any, index: number) => (
@@ -1539,7 +1198,7 @@ export default function Workbench() {
                       ))}
                     </div>
                   </CardContent>
-          </Card>
+                </Card>
               )}
             </div>
           )}
@@ -1608,11 +1267,10 @@ export default function Workbench() {
                           className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                         >
                           <div
-                            className={`max-w-[80%] rounded-lg p-3 ${
-                              msg.role === 'user'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted'
-                            }`}
+                            className={`max-w-[80%] rounded-lg p-3 ${msg.role === 'user'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                              }`}
                           >
                             <div className="text-sm font-medium mb-1">
                               {msg.role === 'user' ? 'You' : 'Assistant'}
@@ -1657,42 +1315,21 @@ export default function Workbench() {
                 </ScrollArea>
 
                 <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Input
-                      value={voiceAssistantInput}
-                      onChange={(e) => setVoiceAssistantInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleVoiceAssistantQuestion();
-                        }
-                      }}
-                      placeholder={isListening ? "Listening..." : "Ask a question or click the microphone to speak..."}
-                      disabled={voiceAssistantLoading || isListening || (!strategyResult?.data && customerMessages.length === 0 && !automationResult?.data?.plan)}
-                      className={isListening ? "pr-12 animate-pulse" : ""}
-                    />
-                    {isListening && (
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-ping"></div>
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    onClick={startListening}
+                  <Input
+                    value={voiceAssistantInput}
+                    onChange={(e) => setVoiceAssistantInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleVoiceAssistantQuestion();
+                      }
+                    }}
+                    placeholder="Ask a question about your workbench data..."
                     disabled={voiceAssistantLoading || (!strategyResult?.data && customerMessages.length === 0 && !automationResult?.data?.plan)}
-                    variant={isListening ? "destructive" : "outline"}
-                    size="icon"
-                    title={isListening ? "Stop listening" : "Start voice input"}
-                  >
-                    {isListening ? (
-                      <MicOff className="w-4 h-4" />
-                    ) : (
-                      <Mic className="w-4 h-4" />
-                    )}
-                  </Button>
+                  />
                   <Button
                     onClick={handleVoiceAssistantQuestion}
-                    disabled={voiceAssistantLoading || isListening || !voiceAssistantInput.trim() || (!strategyResult?.data && customerMessages.length === 0 && !automationResult?.data?.plan)}
+                    disabled={voiceAssistantLoading || !voiceAssistantInput.trim() || (!strategyResult?.data && customerMessages.length === 0 && !automationResult?.data?.plan)}
                   >
                     {voiceAssistantLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1700,20 +1337,6 @@ export default function Workbench() {
                       <MessageSquare className="w-4 h-4" />
                     )}
                   </Button>
-                </div>
-                
-                {/* Auto-listen toggle */}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="auto-listen"
-                    checked={autoListen}
-                    onChange={(e) => setAutoListen(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="auto-listen" className="text-sm text-muted-foreground cursor-pointer">
-                    Automatically resume listening after response (for continuous conversation)
-                  </label>
                 </div>
               </div>
 
