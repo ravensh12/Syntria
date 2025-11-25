@@ -299,6 +299,4 @@ server/
 
 MIT
 
----
 
-Built with ❤️ using Lovable
