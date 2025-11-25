@@ -1,5 +1,7 @@
 ## Syntria
 
+HackUTD Goldman Sachs - Honorable Mention
+
 AI-powered workspace that automates onboarding, detects risk, and supercharges product teams.
 
 Syntria is an all-in-one platform that blends workflow automation, AI risk analysis, and intelligent product tooling. It handles vendor/client onboarding, flags risks in real time, generates product strategy for PMs, and drafts tasks and sprint plans on command — all inside a unified workspace.
