@@ -1,6 +1,6 @@
 ## Syntria
 
-HackUTD Goldman Sachs - Honorable Mention
+## HackUTD Goldman Sachs - Honorable Mention
 
 AI-powered workspace that automates onboarding, detects risk, and supercharges product teams.
 
